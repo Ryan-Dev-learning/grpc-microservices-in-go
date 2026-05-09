@@ -16,35 +16,28 @@ jobs:
   execute-listing:
     name: "Executing listing ${{ github.event.inputs.listing }}"
     runs-on: ubuntu-latest
-    steps:
-      - id: go-cache-paths
-        run: |
-          echo "::set-output name=go-build::$(go env GOCACHE)"
-          echo "::set-output name=go-mod::$(go env GOMODCACHE)"
 
+    steps:
       - uses: actions/checkout@v4
 
-      - name: Install Go
-        uses: actions/setup-go@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5   # Latest stable as of 2026
         with:
-          go-version: 1.17
+          go-version: "1.24"        # Current stable (update as needed)
+          cache: true               # Built-in caching (replaces manual cache)
 
       - name: Install Protoc Dependencies
         run: |
-          sudo apt-get install -y protobuf-compiler golang-goprotobuf-dev
+          sudo apt-get update && sudo apt-get install -y protobuf-compiler
           go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
           go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 
-      # Go build cache
-      - name: Go Build Cache
-        uses: actions/cache@v4
-        with:
-          path: ${{ steps.go-cache-paths.outputs.go-build }}
-          key: ${{ runner.os }}-go-build-${{ hashFiles('**/go.sum') }}
-
       - name: Run
         run: |
-          cd "$(find . -name listing_${{ github.event.inputs.listing }})"
-          ./run.sh ${{ env.GITHUB_USERNAME }} ${{ env.GITHUB_EMAIL }} 
-          
-
+          dir=$(find . -name "listing_${{ github.event.inputs.listing }}" -type d | head -n 1)
+          if [ -z "$dir" ]; then
+            echo "Error: Directory for listing_${{ github.event.inputs.listing }} not found"
+            exit 1
+          fi
+          cd "$dir"
+          ./run.sh "${{ env.GITHUB_USERNAME }}" "${{ env.GITHUB_EMAIL }}"
